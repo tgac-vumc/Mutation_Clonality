@@ -1,0 +1,14 @@
+scripts/__pycache__/
+./*~
+./*/**~
+.cache/
+*~
+*#
+.snakemake/
+.keras/
+tmp/
+numba_cache_dir/
+logs/
+data/
+plots/
+.#*

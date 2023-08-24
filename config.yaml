@@ -1,0 +1,4 @@
+---
+all:
+    data_dir: "data/"
+    plot_dir: "plots/"
