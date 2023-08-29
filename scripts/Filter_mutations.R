@@ -59,6 +59,7 @@ mutations <- mutations %>%
 #-------------------------------------------------------------------------------
 colnames(panel)[1:3] <- c('chr','chromStart','chromEnd')
 
+
 if(panelID == 'KappaHyperExome'){
     Filtered_mutations <-
         mutations %>%
@@ -71,6 +72,7 @@ if(panelID == 'KappaHyperExome'){
         filter(start >= chromStart & start <= chromEnd ) %>%
         select(-chromStart,-chromEnd)
 }
+
 #-------------------------------------------------------------------------------
 # 3.1 Write to file
 #-------------------------------------------------------------------------------

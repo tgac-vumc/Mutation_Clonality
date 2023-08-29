@@ -3,3 +3,5 @@ channels:
   - bioconda
 dependencies:
   - r-essentials
+  - bioconductor-clonality
+  - bioconductor-qvalue
