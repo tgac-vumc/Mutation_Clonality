@@ -21,7 +21,7 @@ suppressMessages(suppressWarnings(library(dplyr)))
 #-------------------------------------------------------------------------------
 if(exists("snakemake")){
     input_mutations <- snakemake@input[["Mutations"]]
-    output <-  snakemake@output[["Metrics"]]
+    output <-  snakemake@output[["Table"]]
 }else{
     input_mutations <-  c('data/KappaHyperExome/Selected_mutations.txt','data/IlluminaFocusPanel/Selected_mutations.txt','data/IlluminaComprehensiveCancerPanel/Selected_mutations.txt','data/IlluminaComprehensiveCancerPanelv3/Selected_mutations.txt','data/IlluminaTrueSightTumor170/Selected_mutations.txt','data/IlluminaTrueSightTumor500/Selected_mutations.txt','data/InhouseLungPanel/Selected_mutations.txt') 
     output <- 'output/Tables/TableXX_NumberOfEvaluableSamples.txt'

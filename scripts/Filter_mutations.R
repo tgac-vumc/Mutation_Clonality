@@ -59,7 +59,6 @@ mutations <- mutations %>%
 #-------------------------------------------------------------------------------
 colnames(panel)[1:3] <- c('chr','chromStart','chromEnd')
 
-
 if(panelID == 'KappaHyperExome'){
     Filtered_mutations <-
         mutations %>%

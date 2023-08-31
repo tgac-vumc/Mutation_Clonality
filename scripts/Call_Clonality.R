@@ -27,7 +27,7 @@ if(exists("snakemake")){
     output <-  snakemake@output[["Metrics"]]
 }else{
     input_mutations <-  'data/KappaHyperExome/Selected_mutations.txt' 
-    output <- 'output/IlluminaFocusPanel/Clonality_metrics.txt'
+    output <- 'output/KappahyperExome/Clonality_metrics.txt'
 
 }
 
@@ -36,7 +36,6 @@ if(exists("snakemake")){
 #-------------------------------------------------------------------------------
 # read panel
 mutations <- read.delim(input_mutations, stringsAsFactors = F)
-
 #-------------------------------------------------------------------------------
 # 2.1 Reformat mutations
 #-------------------------------------------------------------------------------
@@ -58,22 +57,21 @@ mutation_matrix <-
                        values_fill = 0) %>%
     tibble::column_to_rownames(var= 'MutationID') %>%
     as.matrix()
-
 #-------------------------------------------------------------------------------
 # 2.2 Fetch reference data for LR model
 #-------------------------------------------------------------------------------
 freq <-get.mutation.frequencies(rownames(mutation_matrix),"LUAD")
-
 #-------------------------------------------------------------------------------
 # 3.1 Perform Clonality testing using clonal pairs
 #-------------------------------------------------------------------------------
 # Create clonal pairs with different regions within one patient
+#-------------------------------------------------------------------------------
 
 # Initialize dataframe
 Clonality_metrics <- data.frame()
 
 # Iterate over samples
-for(sample in SampleNames){
+for(sample in SampleNames[1:10]){
     mutation_matrix_sample <- mutation_matrix[,grepl(sample,colnames(mutation_matrix))]
     # Get unique region combinations without doublets
     comparisons <- data.table::setDT(data.table::CJ(colnames(mutation_matrix_sample),colnames(mutation_matrix_sample), unique=T)) %>%
@@ -82,6 +80,7 @@ for(sample in SampleNames){
         filter(V1 != V2)
     # Iterate over comparisons
     for(i in 1:nrow(comparisons)){
+        print(i)
         sample1 <- comparisons[i,1]
         sample2 <- comparisons[i,2]
         # Perform Likelihood test and calculate jaccard similarity
@@ -90,7 +89,7 @@ for(sample in SampleNames){
         if(sum(mutation_matrix_sample[,sample1]) + sum(mutation_matrix_sample[,sample2]) == 0){next}
         LR_output <- SNVtest(mutation_matrix_sample[,sample1],mutation_matrix_sample[,sample2], freq)
         Jaccard_similarity <- jaccard(mutation_matrix_sample[,sample1], mutation_matrix_sample[,sample2])
-        Jaccard_pvalue <- jaccard.test(mutation_matrix_sample[,sample1], mutation_matrix_sample[,sample2], method = 'exact' )$pvalue
+        Jaccard_pvalue <- jaccard.test(mutation_matrix_sample[,sample1], mutation_matrix_sample[,sample2], method = 'mca',accuracy=1e-05 )$pvalue
         
         # Add to df
         Clonality_metrics <- rbind(Clonality_metrics,data.frame(t(LR_output)) %>% mutate(comparison = paste0(sample1,'-',sample2), Jaccard = Jaccard_similarity,pval_Jaccard = Jaccard_pvalue, True_clonality = 'Clonal') )
@@ -101,6 +100,7 @@ for(sample in SampleNames){
 #-------------------------------------------------------------------------------
 # Create non-clonal pairs with other patients using only one region (the first)
 # for each patient
+#-------------------------------------------------------------------------------
 
 # Get unique sample combinations without doublets
 comparisons <- data.table::setDT(data.table::CJ(V1=SampleNames,V2=SampleNames, unique=T)) %>%
@@ -119,7 +119,7 @@ for(i in 1:nrow(comparisons)){
     LR_output <- SNVtest(mutation_matrix_sample1,mutation_matrix_sample2, freq)
     Jaccard_similarity <- jaccard(mutation_matrix_sample[,sample1], mutation_matrix_sample[,sample2])
 
-    Jaccard_pvalue <- jaccard.test(mutation_matrix_sample1, mutation_matrix_sample2, method = 'exact')$pvalue
+    Jaccard_pvalue <- jaccard.test(mutation_matrix_sample1, mutation_matrix_sample2, method = 'mca',accuracy=1e-05)$pvalue
     # Add to df
     Clonality_metrics <- rbind(Clonality_metrics,data.frame(t(LR_output)) %>% mutate(comparison = paste0(comparisons[i,1],'-',comparisons[i,2]),  Jaccard = Jaccard_similarity,pval_Jaccard = Jaccard_pvalue, True_clonality = 'Non-Clonal') )
 }
