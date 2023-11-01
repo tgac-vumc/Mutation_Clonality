@@ -23,12 +23,14 @@ if(exists("snakemake")){
     input_mutations <- snakemake@input[["Mutations"]]
     input_panel <- snakemake@input[["panel"]]
     panelID <- snakemake@wildcards[["panel"]]
+    subtype <- snakemake@wildcards[["subtype"]]
     output <-  snakemake@output[["Mutations"]]
 }else{
     input_mutations <- 'data/TRACERx_supplement/nejmoa1616288_appendix_2.xlsx'
-    input_panel <- 'manifest/InhouseLungPanel.bed'
-    panelID <- 'InhouseLungPanel'
-    output <- 'data/InhouseLungPanel/Selected_mutations.txt' 
+    input_panel <- 'manifest/TP53.bed'
+    panelID <- 'TP53'
+    output <- 'data/InhouseLungPanel/Selected_mutations_LUAD.txt'
+    subtype <- 'LUAD'
 }
 
 #-------------------------------------------------------------------------------
@@ -36,14 +38,26 @@ if(exists("snakemake")){
 #-------------------------------------------------------------------------------
 # read mutations object
 mutations <- readxl::read_xlsx(input_mutations, sheet = 'TableS3', skip = 19)
+# Read sample info
+Sample_info <- readxl::read_xlsx(input_mutations, sheet = 'TableS2', skip = 1)
 # read panel
 panel <- read.delim(input_panel, header = F)
-
 #-------------------------------------------------------------------------------
 # 2.1 Reformat mutations
 #-------------------------------------------------------------------------------
+# Select samples by subtype
+if(subtype == 'LUAD'){
+    Sample_info <- Sample_info %>% filter(Histology == 'Invasive adenocarcinoma')
+}else if(subtype == 'LUSC'){
+    Sample_info <- Sample_info %>% filter(Histology == 'Squamous cell carcinoma')
+}
+
+samples <- unique(Sample_info$TRACERxID)
+
 # Transform mutation table to indicate presence of mutation in recurrence
 mutations <- mutations %>%
+    # filter by subtype
+    filter(SampleID %in% samples) %>%
     # split rows per recurrence
     tidyr::separate_rows(RegionSum, sep = ';') %>%
     # recover number of alt reads and region number
@@ -63,6 +77,10 @@ if(panelID == 'KappaHyperExome'){
     Filtered_mutations <-
         mutations %>%
         filter(func == 'exonic')
+}else if(panelID %in% c('TP53','KRAS','EGFR','MET')){
+    Filtered_mutations <-
+        mutations %>%
+        filter(Hugo_Symbol == panelID)
 }else{
     # Join panel regions and filter by panel
     Filtered_mutations <-

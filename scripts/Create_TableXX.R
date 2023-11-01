@@ -23,7 +23,7 @@ if(exists("snakemake")){
     input_mutations <- snakemake@input[["Mutations"]]
     output <-  snakemake@output[["Table"]]
 }else{
-    input_mutations <-  c('data/KappaHyperExome/Selected_mutations.txt','data/IlluminaFocusPanel/Selected_mutations.txt','data/IlluminaComprehensiveCancerPanel/Selected_mutations.txt','data/IlluminaComprehensiveCancerPanelv3/Selected_mutations.txt','data/IlluminaTrueSightTumor170/Selected_mutations.txt','data/IlluminaTrueSightTumor500/Selected_mutations.txt','data/InhouseLungPanel/Selected_mutations.txt') 
+    input_mutations <-  c('data/KappaHyperExome/Selected_mutations_LUAD.txt','data/IlluminaFocusPanel/Selected_mutations_LUAD.txt','data/KappaHyperExome/Selected_mutations_LUSC.txt','data/IlluminaFocusPanel/Selected_mutations_LUSC.txt')
     output <- 'output/Tables/TableXX_NumberOfEvaluableSamples.txt'
 
 }
@@ -35,11 +35,17 @@ if(exists("snakemake")){
 Table_Nsamples <-
     data.frame(file = input_mutations) %>%
     mutate(panel = purrr::map_chr(file, ~strsplit(.x,'/')[[1]][2]),
+           subtype = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][3])),
+
            # read file and get number of unique samples
            Nsample = purrr::map_int(
                                 file, ~nrow(unique(select(read.delim(.x),SampleID,Region)))),
-           Nsample_pct = Nsample / 327 * 100) %>%
-    select(panel,Nsample,Nsample_pct) %>%
+           Ntot = dplyr::case_when(
+                             subtype == 'LUAD' ~ 181,
+                             subtype == 'LUSC' ~ 116,
+                             subtype == 'NSCLC' ~ 327),
+           Nsample_pct = Nsample / Ntot * 100) %>%
+    select(panel,subtype,Nsample,Nsample_pct) %>%
     arrange(Nsample)
 
 #-------------------------------------------------------------------------------
