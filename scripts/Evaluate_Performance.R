@@ -23,6 +23,7 @@ suppressMessages(suppressWarnings(library(pROC)))
 #-------------------------------------------------------------------------------
 if(exists("snakemake")){
     input_metrics <- snakemake@input[["Metrics"]]
+    input_metrics_MC <- snakemake@input[["Metrics_MC"]]
     input_mutations <- snakemake@input[["Shared_Mutations"]]
     input_table <- snakemake@input[["Table"]]
     output <-  snakemake@output[["Evaluation_metrics"]]
@@ -49,6 +50,16 @@ Clonality_metrics <-
            data = purrr::map(file,read.delim)) %>%
     tidyr::unnest()
 
+
+Clonality_metrics_MC <-
+    tibble::tibble(file = input_metrics_MC) %>%
+    mutate(panel = purrr::map_chr(file, ~strsplit(.x,'/')[[1]][2]),
+           subtype = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][4])),
+           # read file and get number of unique samples
+           data = purrr::map(file,read.delim)) %>%
+    tidyr::unnest()
+
+
 # read shared_mutations
 Shared_mutations <-
     tibble::tibble(file = input_mutations) %>%
@@ -73,6 +84,7 @@ Clonality_metrics <-
                Clonality_LR_test = factor(ifelse(LRpvalue < 0.05,1,0), levels=c(0,1)),
                Clonality_Combined_test =  factor(ifelse(pval_Jaccard < 0.05 & LRpvalue < 0.05,1,0), levels=c(0,1)),
                Clonality = factor(ifelse(True_clonality == 'Clonal',1,0), levels=c(0,1)))
+
 
 #-------------------------------------------------------------------------------
 # 2.2 Calculate specificity and sensitivity
@@ -119,15 +131,16 @@ palette_clonal <- palette[c('bluishgreen','vermillion')]
 pdf(output_boxplots,width=10,height=8)
 #pdf('/net/beegfs/cfg/tgac/jjanssen4/boxplot_test.pdf', width = 6, height = 4)
 Clonality_metrics %>%
-    ggplot(aes(panel, n_match,fill=True_clonality)) +
+    ggplot(aes(panel, n_match,fill=True_clonality, color = True_clonality)) +
     geom_boxplot() +
     scale_fill_manual(values = as.vector(palette_clonal)) +
-    facet_wrap(~subtype) +
+    scale_color_manual(values = as.vector(palette_clonal)) +
+
+    facet_wrap(~subtype + True_clonality, switch = 'y', scales = 'free') +
     labs(fill='Clonality',x='Panel',y='Number of matching mutations') +
     theme_bw(base_size = 12) +
     theme(axis.text.x=element_text(size=12,angle=45,hjust=1),
-          legend.position='top') +
-    scale_y_continuous(trans='log10')
+          legend.position='top')  + geom_jitter()
 dev.off()
 #-------------------------------------------------------------------------------
 # 3.1.2 Plot Piechart of %-age of shared mutations in per panel for LUAD/LUSC
@@ -178,7 +191,7 @@ nEvaluable_patients %>%
            `Not Evaluable` = 100 - Nsample_pct) %>%
     select(panel,subtype,Evaluable,`Not Evaluable`) %>%
     # retrieve long format
-    tidyr::pivot_longer(cols = -c(panel,subtype), values_to = 'Percentage') %>%
+    tidyr::pivot_longer(cols = -c(panel,subtype), values_to = 'Percentage') %>% 
     # Plot piecharts
     ggplot(aes(x="", y=Percentage, fill=name)) +
     geom_bar(stat="identity", width=1, color="white") +
@@ -214,7 +227,7 @@ Evaluation_metrics %>%
           legend.position='top',
           legend.box.margin=margin(-10,-10,-10,-10)) +
     scale_fill_manual(values=as.vector(palette)) +
-    facet_grid(~subtype)
+    facet_wrap(~subtype, scales = 'free')
 dev.off()
 #-------------------------------------------------------------------------------
 # 4.1 Write to file

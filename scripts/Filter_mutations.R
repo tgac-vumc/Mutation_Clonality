@@ -27,9 +27,9 @@ if(exists("snakemake")){
     output <-  snakemake@output[["Mutations"]]
 }else{
     input_mutations <- 'data/TRACERx_supplement/nejmoa1616288_appendix_2.xlsx'
-    input_panel <- 'manifest/TP53.bed'
-    panelID <- 'TP53'
-    output <- 'data/InhouseLungPanel/Selected_mutations_LUAD.txt'
+    input_panel <- 'manifest/KappaHyperExome.bed'
+    panelID <- 'KappaHyperExome'
+    output <- 'data/KappaHyperExome/Selected_mutations_LUAD.txt'
     subtype <- 'LUAD'
 }
 

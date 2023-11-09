@@ -11,9 +11,10 @@ subtypes = ['NSCLC','LUAD','LUSC']
 rule all:
     input:
         expand( 'output/{panel}/Clonality_metrics_{subtype}.txt', panel = panels, subtype = subtypes),
+        expand('output/{panel}/Clonality_Calls_MC_{subtype}.txt', panel = panels, subtype = subtypes),
 	#'output/Tables/TableXX_Sensitivity_Specificity.txt',
-        'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
-        'output/Figures/FigureXX_Barchart_Performance.pdf'
+        #'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
+        #'output/Figures/FigureXX_Barchart_Performance.pdf'
         
 #++++++++++++++++++++++++++++++++++++++++++++++ 1 PREPROCESS DATA   +++++++++++++++++++++++++++++++++++++++++++++++++++
 # 1.1 Fetch TRACERx mutations in panel regions
@@ -31,7 +32,7 @@ rule Filter_mutations:
         
 #++++++++++++++++++++++++++++++++++++++++++++++++ 2 CLONALITY   +++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 2.1 Call clonality
-rule Call_Clonality:
+rule Call_Clonality_Two_Metric:
     input:
         Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt'
     output:
@@ -42,6 +43,18 @@ rule Call_Clonality:
     script:
         'scripts/Call_Clonality.R'
 
+#----------------------------------------------------------------------------------------------------------------
+# 2.1 Call clonality: Molecular classification algorithm
+rule Call_Clonality_MC:
+    input:
+        Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt'
+    output:
+        Metrics = 'output/{panel}/Clonality_Calls_MC_{subtype}.txt',
+    conda:
+        'envs/R.yaml'
+    script:
+        'scripts/Call_Clonality_MCalgorithm.R'
+
 
 #++++++++++++++++++++++++++++++++++++++++++++++++ 3 EVALUATION   +++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 2.1 Call clonality
@@ -49,6 +62,7 @@ rule Evaluate_Performance:
     input:
         Shared_Mutations = expand('output/{panel}/Shared_mutations_{subtype}.txt', panel = panels, subtype = ['LUAD','LUSC']),
         Metrics = expand('output/{panel}/Clonality_metrics_{subtype}.txt', panel = panels, subtype = ['LUAD','LUSC']),
+        Metrics_MC = expand('output/{panel}/Clonality_Calls_MC_{subtype}.txt', panel = panels, subtype = ['LUAD','LUSC']),
         Table = 'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
     output:
         Evaluation_metrics = 'output/Tables/TableXX_Sensitivity_Specificity.txt',
