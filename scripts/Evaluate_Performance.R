@@ -32,8 +32,10 @@ if(exists("snakemake")){
     output_piechart_evaluablepatients <- snakemake@output[['Piechart_EvaluablePatients']]
     output_performance <- snakemake@output[['Barchart_performance']]
 }else{
-    input_metrics <-  c('output/KappaHyperExome/Clonality_metrics_LUAD.txt','output/KappaHyperExome/Clonality_metrics_LUSC.txt','output/InhouseLungPanel/Clonality_metrics_LUAD.txt','output/InhouseLungPanel/Clonality_metrics_LUSC.txt')
-    input_mutations <-  c('output/KappaHyperExome/Shared_mutations_LUAD.txt','output/KappaHyperExome/Shared_mutations_LUSC.txt','output/InhouseLungPanel/Shared_mutations_LUAD.txt','output/InhouseLungPanel/Shared_mutations_LUSC.txt')
+    input_metrics <-  c('output/IlluminaTrueSightTumor170/Clonality_metrics_LUAD.txt','output/IlluminaTrueSightTumor170/Clonality_metrics_LUSC.txt','output/InhouseLungPanel/Clonality_metrics_LUAD.txt','output/InhouseLungPanel/Clonality_metrics_LUSC.txt')
+    input_metrics_MC <-  c('output/IlluminaTrueSightTumor170/Clonality_Calls_MC_LUAD.txt','output/IlluminaTrueSightTumor170/Clonality_Calls_MC_LUSC.txt','output/InhouseLungPanel/Clonality_Calls_MC_LUAD.txt','output/InhouseLungPanel/Clonality_Calls_MC_LUSC.txt')
+
+    input_mutations <-  c('output/IlluminaTrueSightTumor170/Shared_mutations_LUAD.txt','output/IlluminaTrueSightTumor170/Shared_mutations_LUSC.txt','output/InhouseLungPanel/Shared_mutations_LUAD.txt','output/InhouseLungPanel/Shared_mutations_LUSC.txt')
     input_table <- 'output/Tables/TableXX_NumberOfEvaluableSamples.txt'
     output <- 'output/Tables/TableXX_Sensitivity_Specificity.txt'
 }
@@ -57,8 +59,8 @@ Clonality_metrics_MC <-
            subtype = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][4])),
            # read file and get number of unique samples
            data = purrr::map(file,read.delim)) %>%
-    tidyr::unnest()
-
+    tidyr::unnest() %>%
+    mutate(comparison = paste0(Sample1,'-',Sample2))
 
 # read shared_mutations
 Shared_mutations <-
@@ -79,12 +81,19 @@ nEvaluable_patients <- read.delim(input_table)
 # 3) pval_Jaccard < 0.05 & LRpvalue < 0.05
 Clonality_metrics <-
     Clonality_metrics %>%
+    left_join(Clonality_metrics_MC, by = c('panel','subtype','True_clonality','comparison')) %>%
     dplyr::mutate(
                Clonality_Jaccard_test = factor(ifelse(pval_Jaccard < 0.05,1,0), levels=c(0,1)),
                Clonality_LR_test = factor(ifelse(LRpvalue < 0.05,1,0), levels=c(0,1)),
                Clonality_Combined_test =  factor(ifelse(pval_Jaccard < 0.05 & LRpvalue < 0.05,1,0), levels=c(0,1)),
+               Clonality_MC_test = factor(
+                   case_when(
+                       Clonality_MC == 'Clonal' ~ 1,
+                       grepl('non-Clonal',Clonality_MC) ~ 0,
+                       TRUE ~ NA_integer_
+                       ),
+                   levels=c(0,1)),
                Clonality = factor(ifelse(True_clonality == 'Clonal',1,0), levels=c(0,1)))
-
 
 #-------------------------------------------------------------------------------
 # 2.2 Calculate specificity and sensitivity
@@ -99,7 +108,9 @@ Evaluation_metrics <-
         Sensitivity_Jaccard = caret::sensitivity(table(Clonality,Clonality_Jaccard_test)),
         Specificity_Jaccard = caret::specificity(table(Clonality,Clonality_Jaccard_test)),
         Sensitivity_Combined = caret::sensitivity(table(Clonality,Clonality_Combined_test)),
-        Specificity_Combined = caret::specificity(table(Clonality,Clonality_Combined_test))) %>%
+        Specificity_Combined = caret::specificity(table(Clonality,Clonality_Combined_test)),
+        Sensitivity_MC = caret::sensitivity(table(Clonality,Clonality_MC_test), na.rm=T),
+        Specificity_MC = caret::specificity(table(Clonality,Clonality_MC_test), na.rm=T)) %>%
     ungroup()
 
 #-------------------------------------------------------------------------------

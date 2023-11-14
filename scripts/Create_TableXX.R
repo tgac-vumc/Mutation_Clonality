@@ -21,9 +21,12 @@ suppressMessages(suppressWarnings(library(dplyr)))
 #-------------------------------------------------------------------------------
 if(exists("snakemake")){
     input_mutations <- snakemake@input[["Mutations"]]
+    input_overview <- snakemake@input[["SampleOverview"]]
+
     output <-  snakemake@output[["Table"]]
 }else{
     input_mutations <-  c('data/KappaHyperExome/Selected_mutations_LUAD.txt','data/IlluminaFocusPanel/Selected_mutations_LUAD.txt','data/KappaHyperExome/Selected_mutations_LUSC.txt','data/IlluminaFocusPanel/Selected_mutations_LUSC.txt')
+    input_overview <- 'data/TRACERx421_supplement/20221109_TRACERx421_all_patient_df.rds'
     output <- 'output/Tables/TableXX_NumberOfEvaluableSamples.txt'
 
 }
@@ -31,6 +34,9 @@ if(exists("snakemake")){
 #-------------------------------------------------------------------------------
 # 1.1 Read data and count number of unique samples
 #-------------------------------------------------------------------------------
+# Read sample overview
+sample_overview <- readRDS(input_overview)
+
 # read mutations
 Table_Nsamples <-
     data.frame(file = input_mutations) %>%
@@ -41,9 +47,9 @@ Table_Nsamples <-
            Nsample = purrr::map_int(
                                 file, ~nrow(unique(select(read.delim(.x),SampleID,Region)))),
            Ntot = dplyr::case_when(
-                             subtype == 'LUAD' ~ 181,
-                             subtype == 'LUSC' ~ 116,
-                             subtype == 'NSCLC' ~ 327),
+                             subtype == 'LUAD' ~ 363,
+                             subtype == 'LUSC' ~ 208,
+                             subtype == 'NSCLC' ~ 740),
            Nsample_pct = Nsample / Ntot * 100) %>%
     select(panel,subtype,Nsample,Nsample_pct) %>%
     arrange(Nsample)

@@ -10,20 +10,23 @@ subtypes = ['NSCLC','LUAD','LUSC']
 # 0.2 specify target rule
 rule all:
     input:
+        expand('data/{panel}/Selected_mutations_{subtype}.txt', panel = panels, subtype = subtypes),
         expand( 'output/{panel}/Clonality_metrics_{subtype}.txt', panel = panels, subtype = subtypes),
         expand('output/{panel}/Clonality_Calls_MC_{subtype}.txt', panel = panels, subtype = subtypes),
-	#'output/Tables/TableXX_Sensitivity_Specificity.txt',
-        #'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
-        #'output/Figures/FigureXX_Barchart_Performance.pdf'
+        expand( 'output/Tables/Clonality_metrics_{panel}.xlsx', panel = panels),
+	'output/Tables/TableXX_Sensitivity_Specificity.txt',
+        'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
+        'output/Figures/FigureXX_Barchart_Performance.pdf'
         
 #++++++++++++++++++++++++++++++++++++++++++++++ 1 PREPROCESS DATA   +++++++++++++++++++++++++++++++++++++++++++++++++++
 # 1.1 Fetch TRACERx mutations in panel regions
 rule Filter_mutations:
     input:
-        Mutations = 'data/TRACERx_supplement/nejmoa1616288_appendix_2.xlsx',
+        Mutations = 'data/TRACERx421_supplement/mutTableAll.cloneInfo.20220726.txt',
+        SampleOverview = 'data/TRACERx421_supplement/20221109_TRACERx421_all_patient_df.rds',
         panel = "manifest/{panel}.bed"
     output:
-        Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt'
+        Mutations = 'data/{panel}/Selected_mutations_{subtype,[^\W_]}.txt'
     conda:
         'envs/R.yaml'
     script:
@@ -36,8 +39,8 @@ rule Call_Clonality_Two_Metric:
     input:
         Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt'
     output:
-        Metrics = 'output/{panel}/Clonality_metrics_{subtype}.txt',
-        Shared_Mutations = 'output/{panel}/Shared_mutations_{subtype}.txt'
+        Metrics = 'output/{panel}/Clonality_metrics_{subtype,[^\W_]}.txt',
+        Shared_Mutations = 'output/{panel}/Shared_mutations_{subtype,[^\W_]}.txt'
     conda:
         'envs/R.yaml'
     script:
@@ -47,9 +50,11 @@ rule Call_Clonality_Two_Metric:
 # 2.1 Call clonality: Molecular classification algorithm
 rule Call_Clonality_MC:
     input:
-        Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt'
+        Mutations = 'data/{panel}/Selected_mutations_{subtype}.txt',
+        Mutations_inhouse = 'data/InhouseLungPanel/Selected_mutations_NSCLC.txt'
+
     output:
-        Metrics = 'output/{panel}/Clonality_Calls_MC_{subtype}.txt',
+        Metrics = 'output/{panel}/Clonality_Calls_MC_{subtype,[^\W_]}.txt',
     conda:
         'envs/R.yaml'
     script:
@@ -77,13 +82,28 @@ rule Evaluate_Performance:
 
         
 #++++++++++++++++++++++++++++++++++++++++++++++++ 4 MISC   +++++++++++++++++++++++++++++++++++++++++++++++++++++
-# 3.1 Create table with number of evaluable patients
+# 4.1 Create table with number of evaluable patients
 rule Create_TableXX:
     input:
-        Mutations = expand('data/{panel}/Selected_mutations_{subtype}.txt', panel = panels, subtype = subtypes)
+        Mutations = expand('data/{panel}/Selected_mutations_{subtype}.txt', panel = panels, subtype = subtypes),
+        SampleOverview = 'data/TRACERx421_supplement/20221109_TRACERx421_all_patient_df.rds'
     output:
         Table = 'output/Tables/TableXX_NumberOfEvaluableSamples.txt',
     conda:
         'envs/R.yaml'
     script:
         'scripts/Create_TableXX.R'
+
+    
+# 4.2 Create excel sheets per panel with all metrics
+rule Create_Clonality_tables:
+    input:
+        Clonality_metrics = lambda wildcards: expand('output/'+wildcards.panel+'/Clonality_metrics_{subtype}.txt',subtype = subtypes),
+        Clonality_metrics_MC = lambda wildcards: expand('output/'+wildcards.panel+'/Clonality_Calls_MC_{subtype}.txt',subtype = subtypes)
+    output:
+        Table = 'output/Tables/Clonality_metrics_{panel}.xlsx',
+    conda:
+        'envs/R.yaml'
+    script:
+        'scripts/Create_Clonality_tables.R'
+     

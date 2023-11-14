@@ -21,52 +21,74 @@ suppressMessages(suppressWarnings(library(dplyr)))
 #-------------------------------------------------------------------------------
 if(exists("snakemake")){
     input_mutations <- snakemake@input[["Mutations"]]
+    input_mutations_inhouse <- snakemake@input[["Mutations_inhouse"]]
+
     subtype <- snakemake@wildcards[["subtype"]]
     output <-  snakemake@output[["Metrics"]]
 }else{
-    input_mutations <-  'data/KappaHyperExome/Selected_mutations_NSCLC.txt'
+    input_mutations <-  'data/InhouseLungPanel/Selected_mutations_NSCLC.txt'
     subtype <- 'NSCLC'
+    input_mutations_inhouse <- 'data/InhouseLungPanel/Selected_mutations_NSCLC.txt'
     output <- 'output/KappaHyperExome/Clonality_metrics_NSCLC.txt'
 }
 
 #-------------------------------------------------------------------------------
 # 1.1 Read data 
 #-------------------------------------------------------------------------------
-# read panel
+# read mutations
 mutations <- read.delim(input_mutations, stringsAsFactors = F)
+
+# read Inhouse mutation data
+Inhouse_Mutations <- read.delim(input_mutations_inhouse)
+
 #-------------------------------------------------------------------------------
 # 2.1 Reformat mutations
 #-------------------------------------------------------------------------------
 # Fetch SampleNames
 SampleNames <- unique(mutations$SampleID)
 
+# Add fields
+mutations <- mutations %>%
+    mutate(MutationID = paste(gsub('chr', '', chr),start, ref,var, sep = ' '),
+           SampleID = paste0(SampleID,'_',Region),
+           Mutation_present = as.integer(Mutation_present),
+           MutationID = paste0(Hugo_Symbol,'_',MutationID))
+
 mutations_broad <-
     # Create fields
     mutations %>%
-    mutate(MutationID = paste(gsub('chr', '', chr),start, ref,var, sep = ' '),
-           SampleID = paste0(SampleID,'_',Region),
-           Mutation_present = as.integer(Mutation_present)) %>%
-    select(SampleID,Hugo_Symbol,MutationID,Mutation_present) %>%
+    select(SampleID,MutationID,Mutation_present) %>%
     unique() %>%
     # Get broad format and fill missing values with 0 (not present)
-    tidyr::pivot_wider(id_cols = c(MutationID,Hugo_Symbol),
+    tidyr::pivot_wider(id_cols =c(MutationID),
                        values_from = Mutation_present,
                        names_from = SampleID,
                        values_fill = 0)
 
+# fetch numeric matrix
 mutation_matrix <-
     mutations_broad %>%
-    mutate(MutationID = paste0(Hugo_Symbol,'_',MutationID)) %>%
-    select(-Hugo_Symbol) %>%
     tibble::column_to_rownames(var= 'MutationID') %>%
     as.matrix()
 
+# Fetch mutation info
+INFO <-
+    mutations %>% 
+    mutate(INFO = paste0(MutationID,':',NucleotideChange,';', AAChange,';VAF_',VAF)) %>%
+    select(SampleID,MutationID,INFO)
 
 #-------------------------------------------------------------------------------
 # 2.1 Define MC algorithm
 #-------------------------------------------------------------------------------
-# define drivers
-oncogenic_driver_mutations <- c("EGFR", "HER2","ERBB2", "BRAF", "MET", "ALK")
+# define drivers genes
+oncogenic_driver_genes <- c("KRAS","EGFR","ERBB2", "MET")
+# Fetch base changes
+oncogenic_driver_mutations <- Inhouse_Mutations %>%
+    mutate(
+        MutationID = paste(gsub('chr', '', chr),start, ref,var, sep = ' '),
+        MutationID = paste0(Hugo_Symbol,'_',MutationID)) %>%
+    filter(Hugo_Symbol %in% oncogenic_driver_genes) %>%
+    pull(MutationID)
 
 MCalgorithm <- function(comparison,True_clonality) {
     # Fetch samplenames
@@ -77,16 +99,29 @@ MCalgorithm <- function(comparison,True_clonality) {
         data1 <- mutation_matrix[,sample1]
         data2 <- mutation_matrix[,sample2]
     }else{
-        data1 <- mutation_matrix[,grepl(comparisons[i,1],colnames(mutation_matrix))][,1]
-        data2 <- mutation_matrix[,grepl(comparisons[i,2],colnames(mutation_matrix))][,1]
+        data1 <- mutation_matrix[,grepl(sample1,colnames(mutation_matrix))][,1]
+        data2 <- mutation_matrix[,grepl(sample2,colnames(mutation_matrix))][,1]
     }
+
+
     #Fetch oncogenic driver mutations
-    oncogenic1 <- data1[purrr::map_chr(names(data1),~strsplit(.x,'_')[[1]][1]) %in% oncogenic_driver_mutations]
-    oncogenic2 <- data2[purrr::map_chr(names(data1),~strsplit(.x,'_')[[1]][1]) %in% oncogenic_driver_mutations]
+    #oncogenic1 <- data1[purrr::map_chr(names(data1),~strsplit(.x,'_')[[1]][1]) %in% oncogenic_driver_mutations]
+    #oncogenic2 <- data2[purrr::map_chr(names(data1),~strsplit(.x,'_')[[1]][1]) %in% oncogenic_driver_mutations]
+
+    oncogenic1 <- data1[names(data1) %in% oncogenic_driver_mutations]
+    oncogenic2 <- data2[names(data2) %in% oncogenic_driver_mutations]
+
     # Fetch other mutations
     data_no_drivers1 <- data1[!names(data1) %in% names(oncogenic1)]
-    data_no_drivers2 <- data1[!names(data2) %in% names(oncogenic2)]
+    data_no_drivers2 <- data2[!names(data2) %in% names(oncogenic2)]
 
+    INFO_oncogenic1 <- paste(INFO[INFO$SampleID == sample1 & INFO$MutationID %in% names(oncogenic1[oncogenic1 == 1]),'INFO'],collapse=' --- ')
+    INFO_oncogenic2 <- paste(INFO[INFO$SampleID == sample2 & INFO$MutationID %in% names(oncogenic1[oncogenic2 == 1]),'INFO'],collapse=' --- ')
+    INFO_no_drivers1 <- paste(INFO[INFO$SampleID == sample1 & INFO$MutationID %in% names(data_no_drivers1[data_no_drivers1 == 1]),'INFO'],collapse=' --- ')
+    INFO_no_drivers2 <- paste(INFO[INFO$SampleID == sample2 & INFO$MutationID %in% names(data_no_drivers2[data_no_drivers2 == 1]),'INFO'],collapse=' --- ')
+
+    shared_mutations <- paste(names(data1)[which(data1 == 1 & data2 == 1)],collapse=' --- ')
+    
     #-------------------------------------------------------------------------------
                                         # Call clonality
     #-------------------------------------------------------------------------------
@@ -96,13 +131,13 @@ MCalgorithm <- function(comparison,True_clonality) {
         if(!identical(oncogenic1,oncogenic2)){
             Clonality <- 'non-Clonal'
             return(
-                data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = 'Different oncogenic driver mutations found')
+                data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = 'Different oncogenic driver mutations found',Shared_mutations = shared_mutations,Driver_information_sample1 =  INFO_oncogenic1, Driver_information_sample2 =  INFO_oncogenic2, Other_information_sample1 = INFO_no_drivers1, Other_information_sample2 = INFO_no_drivers2 )
             )
             
         }
 
     }
-
+    
     # If same oncogenic mutation, or both wild type 
     if(identical(oncogenic1,oncogenic2)){
         # next check if there is more or equal than 1 shared mutation (excluding driver mutations
@@ -117,7 +152,7 @@ MCalgorithm <- function(comparison,True_clonality) {
                 reason <- paste0('Same oncogenic driver and ',n_match,' shared mutations')
             }
             return(
-                data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = reason)
+                data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = reason,Shared_mutations = shared_mutations,Driver_information_sample1 =  INFO_oncogenic1, Driver_information_sample2 =  INFO_oncogenic2, Other_information_sample1 = INFO_no_drivers1, Other_information_sample2 = INFO_no_drivers2)
             )
         }else{
             # In the case of no matching mutations:
@@ -125,14 +160,14 @@ MCalgorithm <- function(comparison,True_clonality) {
             TP53_2 <- data2[purrr::map_chr(names(data1),~strsplit(.x,'_')[[1]][1]) == 'TP53']
             if(all(TP53_1 == 0) & all(TP53_2 == 0)){
                 Clonality <- 'Inconclusive'
-                return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = 'No shared mutations found and TP53 wildtype'))
+                return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = Clonality, reason = 'No shared non-oncogenic mutations found and TP53 wildtype',Shared_mutations = shared_mutations,Driver_information_sample1 =  INFO_oncogenic1, Driver_information_sample2 =  INFO_oncogenic2, Other_information_sample1 = INFO_no_drivers1, Other_information_sample2 = INFO_no_drivers2))
             }else{
                  Clonality <- 'Probably non-Clonal'
-                 return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC =Clonality, reason = 'No shared mutations found and different TP53 mutations'))
+                 return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC =Clonality, reason = 'No shared non-oncogenic mutations found and different TP53 mutations',Shared_mutations = shared_mutations,Driver_information_sample1 =  INFO_oncogenic1, Driver_information_sample2 =  INFO_oncogenic2, Other_information_sample1 = INFO_no_drivers1, Other_information_sample2 = INFO_no_drivers2))
             }
         }
     }
-    return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = '????', reason = 'Unknown'))
+    return(data.frame(Sample1=sample1,Sample2=sample2,True_clonality = True_clonality, Clonality_MC = '????', reason = 'Unknown',Shared_mutations = shared_mutations,Driver_information_sample1 =  INFO_oncogenic1, Driver_information_sample2 =  INFO_oncogenic2, Other_information_sample1 = INFO_no_drivers1, Other_information_sample2 = INFO_no_drivers2))
 }
 
 
@@ -161,7 +196,7 @@ for(sample in SampleNames){
             rbind(
             MC_Clonalities,
             MCalgorithm(comparisons[i,], True_clonality = 'Clonal')
-        )
+            )
         
     }
 }
@@ -196,10 +231,9 @@ for(i in 1:nrow(comparisons)){
     MC_Clonalities <-
         rbind(
             MC_Clonalities,
-            MCalgorithm(comparisons[i,], True_clonality = 'non-Clonal')
+            MCalgorithm(comparisons[i,], True_clonality = 'Non-Clonal')
         )
 }
-
 
 #-------------------------------------------------------------------------------
 # 3.1 Write to file

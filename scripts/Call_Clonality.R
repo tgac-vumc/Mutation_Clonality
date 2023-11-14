@@ -28,10 +28,10 @@ if(exists("snakemake")){
     output_shared_mutations <-snakemake@output[["Shared_Mutations"]]
     output <-  snakemake@output[["Metrics"]]
 }else{
-    input_mutations <-  'data/KappaHyperExome/Selected_mutations_NSCLC.txt'
-    subtype <- 'NSCLC'
-    output <- 'output/KappaHyperExome/Clonality_metrics_LUAD.txt'
-    output_shared_mutations <- 'output/KappaHyperExome/Shared_mutations_LUAD.txt'
+    input_mutations <-  'data/IlluminaTrueSightTumor170/Selected_mutations_LUAD.txt'
+    subtype <- 'LUAD'
+    output <- 'output/IlluminaTrueSightTumor170/Clonality_metrics_LUAD.txt'
+    output_shared_mutations <- 'output/IlluminaTrueSightTumor170/Shared_mutations_LUAD.txt'
 
 }
 
