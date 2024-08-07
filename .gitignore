@@ -13,3 +13,5 @@ data/
 plots/
 .#*
 output/
+.RData
+.Rhistory*

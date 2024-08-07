@@ -37,6 +37,8 @@ Clonality_metrics <-
     tibble::tibble(file = input_metrics) %>%
     mutate(panel = purrr::map_chr(file, ~strsplit(.x,'/')[[1]][2]),
            subtype = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][3])),
+           scenario = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][4])),
+
            # read file and get number of unique samples
            data = purrr::map(file,read.delim)) %>%
     tidyr::unnest()
@@ -45,6 +47,8 @@ Clonality_metrics_MC <-
     tibble::tibble(file = input_metrics_MC) %>%
     mutate(panel = purrr::map_chr(file, ~strsplit(.x,'/')[[1]][2]),
            subtype = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][4])),
+           scenario = gsub('.txt','',purrr::map_chr(file, ~strsplit(.x,'_')[[1]][5])),
+
            # read file and get number of unique samples
            data = purrr::map(file,read.delim)) %>%
     tidyr::unnest() %>%
@@ -55,7 +59,7 @@ Clonality_metrics_MC <-
 #-------------------------------------------------------------------------------
 Clonality_metrics <-
     Clonality_metrics %>%
-    left_join(Clonality_metrics_MC, by = c('panel','subtype','True_clonality','comparison')) %>% 
+    left_join(Clonality_metrics_MC, by = c('panel','scenario','subtype','True_clonality','comparison')) %>% 
     dplyr::mutate(
                Clonality_TwoMetric_test =  factor(ifelse(pval_Jaccard < 0.05 & LRpvalue < 0.05,'Clonal','Non-Clonal')),
                Clonality_MC_test = factor(
@@ -66,7 +70,7 @@ Clonality_metrics <-
                        ),
                    levels=c(0,1)),
                Clonality = factor(ifelse(True_clonality == 'Clonal',1,0), levels=c(0,1))) %>%
-    select(panel,subtype,comparison,True_clonality,Clonality_MC, Clonality_TwoMetric_test,n1,n2,n_match,Jaccard, reason, Shared_mutations,Driver_information_sample1, Driver_information_sample2 , Other_information_sample1 , Other_information_sample2)
+    select(panel,scenario,subtype,comparison,True_clonality,Clonality_MC, Clonality_TwoMetric_test,n1,n2,n_match,Jaccard, reason, Shared_mutations,Driver_information_sample1, Driver_information_sample2 , Other_information_sample1 , Other_information_sample2)
 
 
 #-------------------------------------------------------------------------------
