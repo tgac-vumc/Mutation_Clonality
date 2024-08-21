@@ -2,3 +2,6 @@
 all:
     data_dir: "data/"
     plot_dir: "plots/"
+
+OncoKB:
+    access_token: 'INSERT TOKEN HERE' # OncoKB API token: see https://www.oncokb.org/api-access

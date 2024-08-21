@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - pandas
+  - argparse
+  - requests
+  - urllib3
+  - kiwisolver
