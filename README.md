@@ -1,6 +1,7 @@
 # Mutation_Clonality
 Code to reproduce figures in manuscript "Accuracy of diagnostic mutation panels to test clonality of multiple lung tumors".
-
+The pipeline calculates the accuracy of several diagnositc mutation panels using public data from the TRACERx421 cohort. The user can add a custom mutation panel (in .bed format) to the manifest/
+ to test the accuracy.
 To run this pipeline Snakemake is required.
 
 for easy installation you need (mini)conda.
@@ -36,8 +37,8 @@ source activate snakemake
 
 ```
 
-Setup your files correctly:
-	- Specify OncoKB access token in config.yaml   
+Setup your files correctly: Specify OncoKB access token in config.yaml   
+
 
 navigate to Mutation_Clonality directory and start snakemake.
 
