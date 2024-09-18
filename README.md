@@ -1,6 +1,6 @@
 # Mutation_Clonality
 Code to reproduce figures in manuscript "Accuracy of diagnostic mutation panels to test clonality of multiple lung tumors".
-The pipeline calculates the accuracy of several diagnositc mutation panels using public data from the TRACERx421 cohort. The user can add a custom mutation panel (in .bed format) to the manifest/
+The pipeline calculates the accuracy of several diagnostic mutation panels using public data from the TRACERx421 cohort. The user can add a custom mutation panel (in .bed format) to the manifest/
  to test the accuracy.
 To run this pipeline Snakemake is required.
 
