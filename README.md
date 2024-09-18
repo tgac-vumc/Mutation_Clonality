@@ -37,7 +37,8 @@ source activate snakemake
 
 ```
 
-Setup your files correctly: Specify OncoKB access token in config.yaml   
+Setup your files correctly: 
+- Specify OncoKB access token in config.yaml   
 
 
 navigate to Mutation_Clonality directory and start snakemake.
