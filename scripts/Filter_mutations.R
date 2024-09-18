@@ -22,7 +22,7 @@ suppressMessages(suppressWarnings(library(dplyr)))
 if(exists("snakemake")){
     input_mutations_Frankell <- snakemake@input[["Mutations_Frankell"]]
     input_mutations_Bakir <- snakemake@input[["Mutations_Bakir"]]
-    input_sample_overview <- snakemake@input[["SampleOverview"]]
+    input_sample_overview <- snakemake@input[["PatientOverview"]]
     input_panel <- snakemake@input[["panel"]]
     panelID <- snakemake@wildcards[["panel"]]
     subtype <- snakemake@wildcards[["subtype"]]
@@ -36,7 +36,7 @@ if(exists("snakemake")){
     input_panel <- 'manifest/InhouseLungPanel.bed'
     panelID <- 'InhouseLungPanel'
     output <- 'data/InhouseLungPanel/Selected_mutations_NSCLC.txt'
-    subtype <- ''
+    subtype <- 'NSCLC'
 }
 
 #-------------------------------------------------------------------------------
@@ -54,9 +54,6 @@ panel <- read.delim(input_panel, header = F)
 # 2.1 Reformat mutations
 #-------------------------------------------------------------------------------
 # Select relevant column
-
-
-head(mutations_Frankell)
 mutations_Frankell <- mutations_Frankell %>% select(patient_id,mutation_id,Hugo_Symbol,chr,start,stop,ref,var,func,exonic.func,NucleotideChange, AAChange,RegionSum) 
 mutations_Bakir <- mutations_Bakir %>% select(patient_id,mutation_id,Hugo_Symbol,chr,start,stop,ref,var,func,exonic.func,NucleotideChange, AAChange,RegionSum)
 
@@ -67,6 +64,8 @@ if(subtype == 'LUAD'){
 }else if(subtype == 'LUSC'){
     Sample_info <- Sample_info %>% filter(grepl('LUSC',histology_multi_full))
 }
+
+
 
 samples <- unique(Sample_info$cruk_id)
 
@@ -88,6 +87,11 @@ mutations <- rbind(mutations_Frankell %>%filter(patient_id %in% samples) %>% tid
     #filter(!(SampleID %in% c('CRUK0036','CRUK0296'))) %>%
     unique() %>%
     arrange(MutationID)
+
+# Fetch number of tumor samples (subtract number of patients with two histologies)
+# mutations %>% select(SampleID,Region) %>% unique() %>% nrow() - sum(grepl('&',Sample_info$histology_multi_full))
+mutations %>% filter(SampleID == 'CRUK0084') %>% head(n=200) %>% View()
+
 
 #-------------------------------------------------------------------------------
 # 2.2 Filter mutations by panel

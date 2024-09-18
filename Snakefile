@@ -10,10 +10,7 @@ subtypes = ['LUAD','LUSC']
 # 0.2 specify target rule
 rule all:
     input:
-        expand('output/{panel}/Clonality_metrics_{subtype}.txt',panel=panels,subtype=subtypes)
-        #'output/Tables/TableXX_Sensitivity_Specificity.txt'
-
-
+        'output/Tables/TableXX_Evaluation_Metrics.txt',
 
 #+++++++++++++++++++++++++++++++++++++++++++++++ 0 DOWNLOAD DATA   ++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 0.1 Download supplementary data from Bakir/Frankell et al.
@@ -32,7 +29,7 @@ rule Filter_mutations:
     input:
         Mutations_Frankell = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_mutation_table.fst',
         Mutations_Bakir = 'data/TRACERx421_supplement_Bakir/mutTableAll.cloneInfo.20220726.txt',
-        SampleOverview = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_patient_df.rds',
+        PatientOverview = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_patient_df.rds',
         panel = "manifest/{panel}.bed"
     output:
         Mutations = 'output/{panel}/Selected_mutations_{subtype}.txt'
@@ -43,7 +40,8 @@ rule Filter_mutations:
         
 #----------------------------------------------------------------------------------------------------------------
 # 1.2 Annotate mutations with Oncogenic mutation status using OncoKB
-rule Run_OncoKB:,sep=''
+
+rule Run_OncoKB:
     input:
         Mutations = 'output/KappaHyperExome/Selected_mutations_{subtype}.txt',
     output:
@@ -79,8 +77,7 @@ rule Create_Tumor_Pairs:
 rule Call_Clonality_TwoMetric:
     input:
         Mutations = 'output/{panel}/Selected_mutations_{subtype}.txt',
-        Tumor_pairs = 'data/Tumor_pairs_{subtype}.txt',
-        Annotations = 'output/OncoKB_annotations_{subtype}.txt'
+        Tumor_pairs = 'data/Tumor_pairs_{subtype}.txt'
     output:
         Metrics = 'output/{panel}/Clonality_metrics_{subtype}.txt',
         Shared_Mutations = 'output/{panel}/Shared_mutations_{subtype}.txt'
@@ -113,7 +110,8 @@ rule Evaluate_Performance:
     output:
         Evaluation_metrics = 'output/Tables/TableXX_Evaluation_Metrics.txt',
         Raw_Table = 'output/Tables/TableXX_Raw_Table.txt',
-        Barchart_performance = 'output/Figures/FigureXX_Barchart_Performance.pdf'
+        Barchart_performance = 'output/Figures/FigureXX_Barchart_Performance.pdf',
+        SankeyPlot = 'output/Figures/SankeyPlot.pdf'
     conda:
         'envs/R.yaml'
     script:

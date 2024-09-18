@@ -14,9 +14,12 @@
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 0.1  Import Libraries
 #-------------------------------------------------------------------------------
+if(!'ggsankey' %in% installed.packages()){devtools::install_github("davidsjoberg/ggsankey")}
+suppressMessages(suppressWarnings(library(ggsankey)))
+
+
 suppressMessages(suppressWarnings(library(dplyr)))
 suppressMessages(suppressWarnings(library(ggplot2)))
-
 #-------------------------------------------------------------------------------
 # 1.1 Parse snakemake objects
 #-------------------------------------------------------------------------------
@@ -25,7 +28,6 @@ if(exists("snakemake")){
     input_metrics_MC <- snakemake@input[["Metrics_MC"]]
     output <-  snakemake@output[["Evaluation_metrics"]]
     output_raw <-  snakemake@output[["Raw_Table"]]
-
     output_barchart <- snakemake@output[['Barchart_performance']]
 }else{
     input_metrics <- Sys.glob('output/*/Clonality_metrics_*.txt')
@@ -95,6 +97,7 @@ Inconclusives <-
     group_by(panel,subtype,Clonality_MC,.drop=FALSE) %>%
     summarise(Inconclusive = dplyr::n()) %>%
     filter(Clonality_MC == 'Inconclusive' ) %>%
+    select(-Clonality_MC)
 
 
 Correctly_classified_MC <-
@@ -192,17 +195,9 @@ Evaluation_metrics <-
     left_join(nPositivePred) %>%
     replace(is.na(.), 0)
 
-Evaluation_metrics %>% View()
 #-------------------------------------------------------------------------------
 # 2.3 Create barplot performance
 #-------------------------------------------------------------------------------
-Evaluation_metrics %>%
-    ggplot(mtcars, aes(am)) +
-    scale_y_continuous(labels=percent_format()) + facet_grid(~subtype)
-
-unique(Evaluation_metrics$panel)
-
-
 Plot_data <- Evaluation_metrics %>%
     filter(panel != 'KappaHyperExome') %>%
     select(subtype,panel,Correctly_Classified_MC,Inconclusive,Misclassified_MC) %>%
@@ -213,9 +208,8 @@ Plot_data <- Evaluation_metrics %>%
     mutate(Percentage = paste0(round(100*(value/sum(value))),'%')) %>%
     ungroup()
 
-print(Plot_data, n=24)
 
-pdf(output_barchart,height = 5.8*(243.885/235.320), width = 8*(38.621/73.440))
+pdf(output_barchart,height = 7, width = 9)
 Plot_data %>%
     ggplot(aes(panel,value,fill=name)) +
     geom_bar(position="fill", stat="identity",colour="black") +
@@ -226,6 +220,30 @@ Plot_data %>%
     theme(legend.position = 'top',axis.text.x = element_text(angle = 45, hjust=1)) +
     labs(y='',x='',fill = '')
 dev.off()
+
+#-------------------------------------------------------------------------------
+# 2.3 Create Sankey plot
+#-------------------------------------------------------------------------------
+pdf('test.pdf', width = 20 , height = 20)
+Clonality_metrics_All %>%
+    mutate(Clonality_MC = ifelse(Clonality_MC == 'Probably non-Clonal','non-Clonal',Clonality_MC),
+           Clonality_panel = paste0(panel,': ',Clonality_MC )) %>% 
+    filter(subtype == 'LUAD', panel != 'KappaHyperExome') %>%
+    make_long(True_Clonality,Clonality_panel) %>%
+    ggplot(aes(x = x, 
+               next_x = next_x, 
+               node = node, 
+               next_node = next_node,
+               fill = factor(node),
+               label = node)) +
+  geom_sankey(flow.alpha = 0.5, node.color = 1) +
+  geom_sankey_label(size = 5, color = 1, fill = "white") +
+  #scale_fill_manual(values=group.colors) +
+  #scale_fill_viridis_d(option = "D", alpha = 0.95) +
+  theme_sankey(base_size = 16)+
+  theme(legend.position="bottom")
+dev.off()
+
 
 #-------------------------------------------------------------------------------
 # 4.1 Write to file

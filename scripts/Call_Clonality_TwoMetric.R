@@ -3,11 +3,7 @@
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #
 # Call clonality using one comparison for clonal and non-clonal pairs
-# Scenario 1: Clonal pairs are made up out of primary and metastasis (WorstCaseScenario)
-# Scenario 2: Clonal pairs are made up out of random primary and metastasis (RandomScenario
 #
-# For TRACERx100 take two tumors of primary under the same scenarios
-
 # Author: Jurriaan Janssen (j.janssen4@amsterdamumc.nl)
 #
 # TODO:
@@ -39,7 +35,7 @@ if(exists("snakemake")){
     input_mutations <-  'output/InhouseLungPanel/Selected_mutations_LUAD.txt'
     input_annotations <- 'output/OncoKB_annotations_LUAD.txt'
     input_TumorPairs <- 'data/Tumor_pairs_LUAD.txt'
-    subtype <- 'LUAD'
+    subtype <- 'LUSC'
     output <- 'output/InhouseLungPanel/Clonality_metrics_LUAD.txt'
     output_shared_mutations <- 'output/InhouseLungPanel/Shared_mutations_LUAD.txt'
 }
@@ -83,6 +79,10 @@ mutation_matrix <-
     select(-Hugo_Symbol) %>%
     tibble::column_to_rownames(var= 'MutationID') %>%
     as.matrix()
+
+
+
+mutations %>% filter(SampleID == 'CRUK0084')
 
 #-------------------------------------------------------------------------------
 # 2.2 Fetch reference data for LR model

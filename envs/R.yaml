@@ -4,5 +4,6 @@ channels:
 dependencies:
   - r-essentials
   - r-fst
+  - r-devtools
   - bioconductor-clonality
   - bioconductor-qvalue

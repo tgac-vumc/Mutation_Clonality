@@ -27,10 +27,11 @@ if(exists("snakemake")){
     subtype <- snakemake@wildcards[["subtype"]]
     output <-  snakemake@output[["Tumor_pairs"]]
 }else{
-    input_mutations <- 'output/KappaHyperExome/Selected_mutations_NSCLC.txt'
+    input_mutations <- 'output/KappaHyperExome/Selected_mutations_LUSC.txt'
     input_patient <-  'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_patient_df.rds'
     input_sample <- 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_tumour_df.rds'
     input_sample_Bakir <- 'data/TRACERx421_supplement_Bakir/sampleOverview.txt'
+    output <-  'data/Tumor_pairs_LUAD.txt' 
     subtype <- 'LUSC'
 }
 
@@ -77,7 +78,7 @@ Tumors <-
                grepl("SU_T2|SU_T3",Region) ~ 'second primary',
                grepl("BP",Region) ~ 'metastasis',
                grepl("BR",Region) ~ 'metastasis',
-               grepl("MR",Region) ~ 'metastasis',
+               grepl("MR",Region) ~ 'second primary',
                TRUE ~ 'unknown'),
            sampleTypeDetail = case_when(
                grepl('SU_T1',Region) ~ 'primary',
@@ -102,6 +103,12 @@ Tumors <-
                               )) %>%
 select(SampleID,SampleName,sampleType,sampleTypeDetail,Location,sampleTypeDetailLocation,Relapse_cat,Taken_at_primary_surgery,Is_Primary_lung_tumor,Is_Second_primary,Is_Second_primary_lung_tumor,Sampled_recurrence,Sampled_progression,histology_multi_full,Histology,histology_lesion1,histology_lesion2)
 
+# Manual correction of LN which is derived from second primary with no sample of 2nd lesion
+Tumors <-
+    Tumors %>%
+    mutate(
+        sampleType = ifelse(SampleName == 'CRUK0555_SU_LN1','second primary',sampleType)) %>%
+    filter(SampleName != 'CRUK0084_BR_LN10') # exclude metastasis which is from 2nd (non-lung) primary
 
 #write.table(Tumors,file="Tumors.txt",sep= "\t",row.names = F,quote = F)
 #-------------------------------------------------------------------------------
@@ -110,13 +117,19 @@ select(SampleID,SampleName,sampleType,sampleTypeDetail,Location,sampleTypeDetail
 # randomly selected intrapulmonary metastasis
 #-------------------------------------------------------------------------------
 # Fetch patients with at least 1 metastasis
-metPatients <- Tumors %>%filter(sampleType== 'metastasis') %>% pull(SampleID) %>% unique()
+metPatients <- Tumors %>% filter(sampleType== 'metastasis') %>% pull(SampleID) %>% unique()
 # set random seed
 set.seed(1)
 Selected_pairs <-
     Tumors %>%
     # select patient with a metastasis
-    filter(SampleID %in% metPatients) %>% #filter(Location == 'IntraThoracic' ) %>%
+    filter(SampleID %in% metPatients) %>%
+    # Filter out samples which are not clonally related to metastasis (but with 2nd primary)
+    filter(!SampleName %in%
+           c(paste0('CRUK0301_SU_T1.R',seq(3,4)), # LN is clonal with R1/R2
+           paste0('CRUK0620_SU_T1.R',seq(1,4)), # LN is clonal with R5
+           paste0('CRUK0721_SU_T1.R',seq(2,4))) # LN is clonal with R1
+           ) %>% 
     # Create primary/metastasis groups per patient
     group_by(SampleID,sampleType,Location) %>%
     # Randomly slice one within group row
@@ -127,6 +140,7 @@ Intrathoracic_pairs <-
     Selected_pairs %>% 
     filter(Location == 'Intrathoracic') %>%
     tidyr::pivot_wider(id_cols = c(SampleID),values_from = SampleName,names_from = sampleType) %>%
+    select(-contains('second primary')) %>%
     mutate(Pair_type = 'IPM',True_Clonality = 'Clonal')
 
 
@@ -139,6 +153,8 @@ Extrathoracic_pairs <-
     tidyr::pivot_wider(id_cols = SampleID,values_from = SampleName,names_from = sampleType) %>%
     mutate(Pair_type = 'Extrathoracic metastasis',True_Clonality = 'Clonal')
 
+colnames(Intrathoracic_pairs)
+colnames(Extrathoracic_pairs)
 # Concatenate Intra- with Extrathoracic pairs
 Clonal_pairs <- rbind(Intrathoracic_pairs,Extrathoracic_pairs) %>% filter(!is.na(metastasis))
 
@@ -156,8 +172,8 @@ nPairs <- nrow(Clonal_pairs)
 
 # INCLUDE:
 # CRUK0030: two primaries at surgery, both LUAD
-# CRUK0249: two primaries at surgery, both LUAD
-# CRUK0519: two primaries at surgery, both LUAD
+# CRUK0249: two primaries at surgery, both LUAD ******** EXCLUDE ********
+# CRUK0519: two primaries at surgery, both LUAD ******** EXCLUDE ******** (non-lung second primary)
 # CRUK0620: two primaries at surgery, both LUAD
 # CRUK0881: collision at surgery, both LUAD # histology multi full says LUADx2
 
@@ -165,6 +181,7 @@ nPairs <- nrow(Clonal_pairs)
 # CRUK0223: two primaries at surgery, one LUAD one LUSC
 # CRUK0372: two primaries at surgery, one LUAD and one pleomorphic 
 # CRUK0586: two primaries at surgery, one LUAD one LUSC
+# CRUK0555: two primaries at surgery, one LUAD one lUSC
 #---------------------------------------------------------------------------------------------
 # INVESTIGATE:
 # - CRUK0039: 2 regions sampled, apparently collisions, both LUAD, check mutations of regions
@@ -198,13 +215,17 @@ nPairs <- nrow(Clonal_pairs)
 #             PatientOverview says: Lesion 2 is not sampled
 
 # Fetch SPLCs designated primary/second primary pairs
-# No LUSC patient has 2 SPLCs with LUSC subtype  
+# No patient has 2 SPLCs with LUSC subtype  
 if(subtype == 'LUSC'){
     SPLCs <- data.frame()
 }else if(subtype == 'LUAD'){
+    set.seed(1)
     SPLCs1 <-
         Tumors %>%
-        filter(SampleID %in% c('CRUK0030','CRUK0249','CRUK0519','CRUK0620','CRUK0881')) %>%
+        filter(SampleID %in% c('CRUK0030',
+                               #'CRUK0249', Altough it is annotated as second primary, many mutations are matching, exclude
+                               #'CRUK0519', non-lung seconcd primary
+                               'CRUK0620','CRUK0881')) %>%
         filter(sampleType %in% c('primary','second primary')) %>%
         group_by(SampleID,sampleType) %>%
         # Randomly slice one within group row
@@ -248,6 +269,7 @@ Primary_tumors1 <- Tumors %>% filter(sampleType == 'primary') %>% sample_frac() 
 # Reshuffle again
 Primary_tumors2 <- Primary_tumors1 %>% sample_frac() %>% rename(SampleID2 = SampleID,SampleName2=SampleName)
 # concatenate and filter out interpatient pairs
+set.seed(1)
 Interpatient_pairs <-
     Primary_tumors1 %>%
     cbind(Primary_tumors2) %>%

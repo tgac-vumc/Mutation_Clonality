@@ -177,8 +177,17 @@ for(i in seq(nrow(Intron_regions))){
 }
 
 panel <- unique(panel)
+
+# Add exon regions
+panel <- rbind(panel,
+               gencode %>% filter(gene_name %in% ExonGenes, feature_type == 'exon')  %>%
+               select(chromosome_name,genomic_start_location,genomic_end_location) %>%
+               unique())
+
 colnames(panel) <- c('chr','chromStart','chromEnd')
-# Fetch start and end positions
+
+
+
 panel <- panel %>%
     mutate(
         min = case_when(
@@ -192,4 +201,6 @@ panel <- panel %>%
     select(chr,min,max)
 
 colnames(panel) <- c('chr','chromStart','chromEnd')
+
+
 
