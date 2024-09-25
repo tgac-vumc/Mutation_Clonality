@@ -20,6 +20,7 @@ rule Download_data:
         Mutations_Bakir = 'data/TRACERx421_supplement_Bakir/mutTableAll.cloneInfo.20220726.txt',
         PatientOverview = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_patient_df.rds',
         SampleOverview = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_tumour_df.rds',
+	SampleOverview_Bakir = 'data/TRACERx421_supplement_Bakir/sampleOverview.txt'
     shell:
         './Download_data.sh'
 

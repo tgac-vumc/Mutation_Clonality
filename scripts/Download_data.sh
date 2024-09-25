@@ -4,7 +4,7 @@ wget https://zenodo.org/records/7649257/files/metsFigures.zip?download=1 -P data
 unzip 'data/TRACERx421_supplement_Bakir/metsFigures.zip?download=1'
 # move file
 mv data/TRACERx421_supplement_Bakir/metsFigures/data/mutTableAll.cloneInfo.20220726.txt data/TRACERx421_supplement_Bakir/
-
+mv data/TRACERx421_supplement_Bakir/metsFigures/data/sampleOverview.txt data/TRACERx421_supplement_Bakir/
 # Fetch zenodo repository Frankell et al
 wget https://zenodo.org/records/7822002/files/figurecode.zip?download=1 -P data/TRACERx421_supplement_Frankell/
 # Unzip archive
