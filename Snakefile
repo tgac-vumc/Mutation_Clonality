@@ -22,7 +22,7 @@ rule Download_data:
         SampleOverview = 'data/TRACERx421_supplement_Frankell/20221109_TRACERx421_all_tumour_df.rds',
 	SampleOverview_Bakir = 'data/TRACERx421_supplement_Bakir/sampleOverview.txt'
     shell:
-        './Download_data.sh'
+        'scripts/Download_data.sh'
 
 #++++++++++++++++++++++++++++++++++++++++++++++ 1 PREPROCESS DATA   +++++++++++++++++++++++++++++++++++++++++++++++++++
 # 1.1 Subsample TRACERx mutations in panel regions
